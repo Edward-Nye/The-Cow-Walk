@@ -20,7 +20,7 @@ class Cow:
 
         self.learning_rate = 0.1
         self.discount_factor = 0.99
-        self.exploration_rate = 0.70
+        self.exploration_rate = None
     
     def get_state(self, herd):
     # Ensure state representation includes position as tuple elements
@@ -28,7 +28,12 @@ class Cow:
         state = (self.position[0], self.position[1], self.walk_speed, self.eagerness) + tuple(np.array(nearby_cows).flatten())
         return state
 
-    def choose_action(self, state):
+    def choose_action(self, state, iteration):
+        if iteration == 0:
+            self.exploration_rate = 0.9
+        else:
+            self.exploration_rate = 0.1
+       
         if state not in self.q_table:
         # Initialize the Q-values for the new state
             self.q_table[state] = [0, 0, 0, 0]
@@ -299,7 +304,7 @@ def main(iterations=1):
     
     herd = load_cows_from_file("TXT/cows.txt")
 
-  
+      
     for iteration in range(iterations):
         paddock = Paddock(paddock_width, paddock_height)
         
@@ -317,7 +322,7 @@ def main(iterations=1):
                 
                 for cow in herd:   
                     state = cow.get_state(herd)
-                    action = cow.choose_action(state)
+                    action = cow.choose_action(state, iteration)
                     #print(f"Cow {cow.number} at {cow.position} takes action {action}")  # Debug action selection
                     next_state, reward, done = env_step(paddock, cow, action, herd)
                     #print(f"Cow {cow.number} moves to {next_state[:2]} with reward {reward}")  # Debug position update
@@ -337,9 +342,11 @@ def main(iterations=1):
                
         if iteration == 0:
             herd = load_cows_from_file("TXT/cows.txt")
+            
 
         else:
             herd = load_cows_from_file(f"TXT/cows_after_iteration_{iteration-1}.txt")
+            
 
         average_walk_speed = sum(cow.walk_speed for cow in herd) / len(herd)
         print(average_walk_speed)
