@@ -22,8 +22,8 @@ class Cow:
         self.discount_factor = 0.99
         self.exploration_rate = 0.70
     
-        def get_state(self, herd):
-       # Ensure state representation includes position as tuple elements
+    def get_state(self, herd):
+    # Ensure state representation includes position as tuple elements
         nearby_cows = [(other_cow.position[0] - self.position[0], other_cow.position[1] - self.position[1]) for other_cow in herd if other_cow != self]
         state = (self.position[0], self.position[1], self.walk_speed, self.eagerness) + tuple(np.array(nearby_cows).flatten())
         return state
@@ -60,31 +60,6 @@ class Cow:
 
         return int(x), max(0, min(int(y), paddock_height - 1))
     
-    def move_towards(self, target, paddock_width, paddock_height):
-        x, y = self.position
-        target_x, target_y = target
-
-        move_step = 2 ** (self.walk_speed / 100)
-
-        # Determine movement in x direction    
-        if x < target_x:
-            x += move_step
-        elif x > target_x:
-            x -= move_step
-
-        # Determine movement in y direction
-        if y < target_y:
-            y += move_step
-        elif y > target_y:
-            y -= move_step 
-        
-
-            
-        # Ensure the new position is within paddock bounds
-        x = max(0, min(x, paddock_width - 1))
-        y = max(0, min(y, paddock_height - 1))
-
-        self.position = (int(x), int(y))  # Update position
 
 
 class Paddock:
@@ -104,15 +79,6 @@ class Paddock:
                 if self.grid[y, x] == cow.number:
                     self.grid[y, x] = 0
 
-        #x, y = cow.position
-        #self.grid[y, x] = 0  # Mark the cell as unoccupied by a cow
-    
-
-    #def new_positions(self, herd, frame_number, iteration):
-    #    grid_str = "\n".join(" ".join(map(str, row)) for row in self.grid)
-    #    with open(f"TXT/paddock_frames_{iteration}.txt", "a") as file:
-    #        file.write(f"TXT/Frame {frame_number}:\n{grid_str}\n\n")
-
     def new_positions(self, herd, frame_number, iteration):
         for cow in herd:
             self.place_cow(cow)
@@ -129,41 +95,10 @@ class Paddock:
         herd.sort(key=lambda cow: abs(cow.position[0] - target_x) + abs(cow.position[1] - target_y))
         return herd
     
-    def update_positions(self, herd, target, arrived, frame_number, iteration):
-        new_positions = set()
-        
-        target_x, target_y = target
-        herd.sort(key=lambda cow: abs(cow.position[0] - target_x) + abs(cow.position[1] - target_y))
-        
-          # Track new positions for each cow
-        for cow in herd[:]:  # Use a slice to iterate over a copy of the herd
-            self.remove_cow(cow)  # Remove current position
-            old_position = cow.position  # Store old position
-            
-            # Try to move cow towards the target
-            cow.move_towards(target, self.width, self.height)
-            new_position = cow.position
-            
-            # Check if the new position is already occupied or if it's in new_positions
-            if (self.grid[new_position[1], new_position[0]] == 0) and (new_position not in new_positions):
-                new_positions.add(new_position)  # Mark this new position as occupied
-                if new_position[0] <= 5 and new_position[1] == 0:
-                    arrived.append(cow)  # Add to the arrived list
-                    herd.remove(cow)  # Remove from the herd
-                else:
-                    self.place_cow(cow)  # Update new position
-            else:
-                cow.position = old_position  # Revert to old position if new position is occupied
-                self.place_cow(cow)  # Place the cow back at the old position
-        
-        # Save the current frame
-        self.save_frame(frame_number, iteration)
-
     def save_frame(self, frame_number, iteration):
         grid_str = "\n".join(" ".join(map(str, row)) for row in self.grid)
         with open(f"TXT/paddock_frames_{iteration}.txt", "a") as file:
             file.write(f"TXT/Frame {frame_number}:\n{grid_str}\n\n")
-        #print(f"Saved frame {frame_number}")
 
     def display(self):
         print(self.grid)
@@ -194,7 +129,7 @@ class PaddockEnv(gym.Env):
         x, y = self.state
         
         if action == 0:  # up
-            y = min(y + 1, self.height - 1)
+           y = min(y + 1, self.height - 1)
         elif action == 1:  # down
             y = max(y - 1, 0)
         elif action == 2:  # left
@@ -267,12 +202,6 @@ def update_walk_speed(herd, arrived, average_walk_speed):
         
         if cow.number in arrival_order:
             i = arrival_order[cow.number]
-            #if i < midpoint:
-            #    position_factor = 1 - (i / midpoint)
-            #else:
-            #    position_factor = -((i - midpoint) / midpoint)
-            
-            
             
             if i < midpoint and cow.walk_speed < average_walk_speed:
                 position_factor = 1 - (i / midpoint)
@@ -363,11 +292,10 @@ def env_step(paddock, cow, action, herd):
 
     return next_state, reward, done
 
-def main():
+def main(iterations=1):
     paddock_width = 25
     paddock_height = 50
     target = (np.arange(5), 0)
-    iterations = 20
     
     herd = load_cows_from_file("TXT/cows.txt")
 
@@ -423,4 +351,5 @@ def main():
         save_cows_to_file(herd, f"TXT/cows_after_iteration_{iteration}.txt")
 
 if __name__ == "__main__":
-    main()
+    iterations = int(input("How many iterations: "))
+    main(iterations)
