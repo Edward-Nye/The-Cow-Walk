@@ -29,16 +29,16 @@ class Cow:
         return state
 
     def choose_action(self, state, iteration):
-        if iteration == 0:
-            self.exploration_rate = 0.9
+        if iteration < 7:
+            self.exploration_rate = 1 - iteration/10
         else:
-            self.exploration_rate = 0.1
+            self.exploration_rate = 0.3
        
         if state not in self.q_table:
         # Initialize the Q-values for the new state
             self.q_table[state] = [0, 0, 0, 0]
         # Set action 1 to have a high initial Q-value
-            self.q_table[state][1] = 0.1
+        #    self.q_table[state][1] = 0.1
         if random.random() < self.exploration_rate:  # Exploration
             return random.randint(0, 3)
         return np.argmax(self.q_table[state])
