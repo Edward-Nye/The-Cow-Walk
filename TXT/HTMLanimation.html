@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animations</title>
+    <style>
+        .animation-container {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <div id="animations"></div>
+
+    <script>
+        // Function to draw a frame
+        function drawFrame(ctx, frame) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            for (let y = 0; y < frame.length; y++) {
+                for (let x = 0; x < frame[y].length; x++) {
+                    const cell = frame[y][x];
+                    if (cell !== 0) {
+                        ctx.fillStyle = `rgb(${255*(cell/420)}, ${255*(cell/420)}, ${255*(cell/420)})`;
+                        ctx.fillRect(x * 10, y * 10, 10, 10);
+                    }
+                }
+            }
+        }
+
+        // Function to animate frames
+        function animateFrames(ctx, frames, delay) {
+            let frameIndex = 0;
+
+            function animate() {
+                drawFrame(ctx, frames[frameIndex]);
+                frameIndex = (frameIndex + 1) % frames.length;
+                setTimeout(animate, delay);
+            }
+
+            animate();
+        }
+
+        // Function to load frames from a file
+        async function loadFrames(filename) {
+            try {
+                console.log(`Loading frames from: ${filename}`);
+                const response = await fetch(filename);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch ${filename}: ${response.statusText}`);
+                }
+                const fileContents = await response.text();
+                const frames = parseFrames(fileContents);
+                console.log(`Loaded frames from: ${filename}`);
+                return frames;
+            } catch (error) {
+                console.error(error);
+                return [];
+            }
+        }
+
+        // Function to parse frames from file content
+        function parseFrames(fileContents) {
+            const frames = [];
+            const frameSections = fileContents.split(/Frame \d+:/).slice(1); // Split and remove empty first element
+            for (const section of frameSections) {
+                const lines = section.trim().split('\n');
+                const frame = lines.map(line => line.trim().split(' ').map(Number));
+                frames.push(frame);
+            }
+            return frames;
+        }
+
+        // Function to create and start animation for a file
+        async function createAndAnimate(filename) {
+            const animationContainer = document.createElement('div');
+            animationContainer.className = 'animation-container';
+
+            const title = document.createElement('h3');
+            title.innerText = filename;
+            animationContainer.appendChild(title);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 250;
+            canvas.height = 500; // Adjust height if needed
+            animationContainer.appendChild(canvas);
+
+            document.getElementById('animations').appendChild(animationContainer);
+
+            const ctx = canvas.getContext('2d');
+            const frames = await loadFrames(filename);
+            if (frames.length > 0) {
+                animateFrames(ctx, frames, 1);  // Change delay as needed
+            } else {
+                console.error("No frames loaded.");
+            }
+        }
+
+        // List of files to load and animate
+        const files = ['paddock_frames_0.txt', 'paddock_frames_1.txt', 'paddock_frames_2.txt',
+         'paddock_frames_3.txt', 'paddock_frames_4.txt', 'paddock_frames_5.txt']; // Add more files as needed
+
+        // Load and animate each file
+        files.forEach(filename => {
+            createAndAnimate(filename);
+        });
+    </script>
+</body>
+</html>
