@@ -184,10 +184,16 @@ class QLearningAgent:
         if done:
             self.exploration_rate *= self.exploration_decay
 
-def save_cows_to_file(herd, filename):
-    with open(filename, "w") as file:
-        for cow in herd:
-            file.write(f"{cow.number},{cow.name},{cow.walk_speed},{cow.eagerness},{cow.luck}\n")
+def save_cows_to_file(herd, iteration, mode, filename):
+    if mode == 0:
+        with open(filename, "w") as file:
+            for cow in herd:
+                file.write(f"{cow.number},{cow.name},{cow.walk_speed},{cow.eagerness},{cow.luck}\n")
+    if mode == 1:
+        with open(filename, "a") as file:
+            for cow in herd:
+                position = herd.index(cow)
+                file.write(f"{cow.number},{cow.name},{cow.walk_speed},{cow.eagerness},{cow.luck},{position},{iteration}\n")
 
 def load_cows_from_file(filename):
     cows = []
@@ -316,6 +322,7 @@ def main(iterations=1):
         frame_number = 0
         
         open(f"TXT/paddock_frames_{iteration}.txt", "w").close()
+        open(f"TXT/cow_arrival_iterations.txt", "w").close()
         
         with tqdm(total=len(herd), desc=f"Moving cows iteration {iteration + 1}") as pbar:
             while herd:
@@ -353,9 +360,9 @@ def main(iterations=1):
         update_walk_speed(herd, arrived, average_walk_speed)
         update_eagerness(herd)
 
-        save_cows_to_file(arrived, f"TXT/cow_arrival_iteration_{iteration}.txt")
+        save_cows_to_file(arrived, iteration, 1, f"TXT/cow_arrival_iterations.txt")
         
-        save_cows_to_file(herd, f"TXT/cows_after_iteration_{iteration}.txt")
+        save_cows_to_file(herd, iteration, 0, f"TXT/cows_after_iteration_{iteration}.txt")
 
 if __name__ == "__main__":
     iterations = int(input("How many iterations: "))
