@@ -38,7 +38,7 @@ class Cow:
         # Initialize the Q-values for the new state
             self.q_table[state] = [0, 0, 0, 0]
         # Set action 1 to have a high initial Q-value
-        #    self.q_table[state][1] = 0.1
+            self.q_table[state] = np.random.uniform(low=0, high=1, size=4).tolist()
         if random.random() < self.exploration_rate:  # Exploration
             return random.randint(0, 3)
         else:
@@ -47,16 +47,18 @@ class Cow:
 
 
     def learn(self, state, action, reward, next_state, done):
-        if state not in self.q_table:
-            self.q_table[state] = [0, 0, 0, 0]
+        state = tuple(state)  # Ensure state is a tuple
+        next_state = tuple(next_state)  # Ensure next_state is a tuple
         
-        old_q_value = self.q_table[state][action]
+        old_q_value = self.q_table.get(state, [0, 0, 0, 0])[action]
         next_max = np.max(self.q_table.get(next_state, [0, 0, 0, 0]))
         
         new_q_value = old_q_value + self.learning_rate * (reward + self.discount_factor * next_max * (1 - done) - old_q_value)
-        self.q_table[state][action] = new_q_value
         
-        self.q_table[state][action] = new_q_value
+        if state not in self.q_table:
+            self.q_table[state] = np.random.uniform(low=-1, high=1, size=4).tolist()
+        
+        self.q_table[state][action] = new_q_value  
 
     def calculate_starting_position(self, paddock_width, paddock_height):
         eagerness_norm = self.eagerness / 100
@@ -226,18 +228,20 @@ def env_step(paddock, cow, action, herd):
 
     # Check if the new position is occupied by another cow
     if any((other_cow.position[0], other_cow.position[1]) == (next_x, next_y) for other_cow in herd):
-        reward -= 5  # Penalty for trying to move into an occupied space
+        reward -=10  # Penalty for trying to move into an occupied space
         next_x, next_y = x, y  # Stay in the current position
     else:
         reward -= 1  # Small penalty for each move
 
-    # Proximity reward
+    # Proximity reward/penalty
     target_x, target_y = paddock.target
     dist_before = abs(y - target_y)
     dist_after = abs(next_y - target_y)
     
     if dist_after < dist_before:
-        reward += 2  # Reward for moving closer to the target
+        reward += 5  # Reward for moving closer to the target
+    else:
+        reward -= 5  # Penalty for moving away from the target
 
     # Exploration penalty
     if (next_x, next_y) == (x, y):
@@ -251,6 +255,7 @@ def env_step(paddock, cow, action, herd):
         reward += 10  # Reward for reaching the target
         done = True
 
+
     return next_state, reward, done
 
 
@@ -260,14 +265,14 @@ def main(iterations=1):
     target = (np.arange(5), 0)
     
     herd = load_cows_from_file("TXT/cows.txt")
-    herd = herd[:10]
+    herd = herd[:3]
     
     open(f"TXT/MOVES.txt", "w").close()
     open(f"TXT/cow_arrival_iterations.txt", "w").close()
     
     for iteration in range(iterations):
         paddock = Paddock(paddock_width, paddock_height)
-        herd = herd[:10]
+        herd = herd[:3]
 
         arrived = []
         
@@ -304,11 +309,11 @@ def main(iterations=1):
                
         if iteration == 0:
             herd = load_cows_from_file("TXT/cows.txt")
-            herd = herd[:10]
+            herd = herd[:3]
 
         else:
             herd = load_cows_from_file(f"TXT/cows_after_iteration_{iteration-1}.txt")
-            herd = herd[:10]
+            herd = herd[:3]
 
         average_walk_speed = sum(cow.walk_speed for cow in herd) / len(herd)
         print(average_walk_speed)
