@@ -195,6 +195,10 @@ def save_cows_to_file(herd, iteration, mode, filename):
                 position = herd.index(cow)
                 file.write(f"{cow.number},{cow.name},{cow.walk_speed},{cow.eagerness},{cow.luck},{position},{iteration}\n")
 
+def moveSave(cow, action, nextState, reward, iteration, frame, filename):
+    with open(filename, "a") as file:
+        file.write(f"{cow.number},{cow.name},{cow.position},{action},{nextState},{reward},{iteration},{frame}\n")
+
 def load_cows_from_file(filename):
     cows = []
     with open(filename, "r") as file:
@@ -323,6 +327,7 @@ def main(iterations=1):
         
         open(f"TXT/paddock_frames_{iteration}.txt", "w").close()
         open(f"TXT/cow_arrival_iterations.txt", "w").close()
+        open(f"TXT/MOVES.txt", "w").close()
         
         with tqdm(total=len(herd), desc=f"Moving cows iteration {iteration + 1}") as pbar:
             while herd:
@@ -335,6 +340,7 @@ def main(iterations=1):
                     #print(f"Cow {cow.number} moves to {next_state[:2]} with reward {reward}")  # Debug position update
                     cow.learn(state, action, reward, next_state, done)
                     cow.position = (next_state[0], next_state[1])
+                    moveSave(cow, action, next_state[:2], reward, iteration, frame_number, f"TXT/MOVES.txt")
 
 
                     if done:
