@@ -166,10 +166,15 @@ def update_walk_speed(herd, arrived, average_walk_speed):
             if i > midpoint and cow.walk_speed > average_walk_speed:
                 position_factor = -((i - midpoint) / midpoint)
                 multiplier = ((200 - cow.walk_speed) / 100)
+            else:
+                position_factor = 0
+                multiplier = 0
             
             
         else:
             cow.walk_speed -= 0.1
+            position_factor = 0
+            multiplier = 0
         
         change = position_factor * multiplier
         cow.walk_speed += change
@@ -265,14 +270,14 @@ def main(iterations=1):
     target = (np.arange(5), 0)
     
     herd = load_cows_from_file("TXT/cows.txt")
-    herd = herd[:3]
+    herd = herd[:10]
     
     open(f"TXT/MOVES.txt", "w").close()
     open(f"TXT/cow_arrival_iterations.txt", "w").close()
     
     for iteration in range(iterations):
         paddock = Paddock(paddock_width, paddock_height)
-        herd = herd[:3]
+        herd = herd[:10]
 
         arrived = []
         
@@ -309,11 +314,11 @@ def main(iterations=1):
                
         if iteration == 0:
             herd = load_cows_from_file("TXT/cows.txt")
-            herd = herd[:3]
+            herd = herd[:10]
 
         else:
             herd = load_cows_from_file(f"TXT/cows_after_iteration_{iteration-1}.txt")
-            herd = herd[:3]
+            herd = herd[:10]
 
         average_walk_speed = sum(cow.walk_speed for cow in herd) / len(herd)
         print(average_walk_speed)
