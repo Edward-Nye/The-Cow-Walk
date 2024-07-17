@@ -1,11 +1,9 @@
 
 import random
 import numpy as np
-import matplotlib.pyplot as plt
+import json
 from tqdm import tqdm
-import gym
-from gym import spaces
-from collections import defaultdict
+
 
 class Cow:
     def __init__(self, number, name, walk_speed, eagerness, luck):
@@ -15,29 +13,57 @@ class Cow:
         self.eagerness = eagerness
         self.luck = luck
         self.position = (0, 0)
+        self.exitframe = None
 
         self.q_table = {}  # Initialize an empty Q-table
 
-        self.learning_rate = 0.1
-        self.discount_factor = 0.99
+        self.learning_rate = 0.9
+        self.discount_factor = 0.1
         self.exploration_rate = None
     
-    def get_state(self, herd):
-    # Ensure state representation includes position as tuple elements
-        nearby_cows = [(other_cow.position[0] - self.position[0], other_cow.position[1] - self.position[1]) for other_cow in herd if other_cow != self]
-        state = (self.position[0], self.position[1], self.walk_speed, self.eagerness) + tuple(np.array(nearby_cows).flatten())
+    def initialize_q_table(self, paddock_width, paddock_height):
+        for x in range(paddock_width):
+            for y in range(paddock_height):
+                state = (x, y, 0, 0, 0, 0)  # Example state structure
+                self.q_table[state] = [random.uniform(-1, 1) for _ in range(4)]
+    
+    def get_state(self, herd, paddock):
+    # Define the positions of the spaces around the cow
+        left = (self.position[0] - 1, self.position[1])
+        right = (self.position[0] + 1, self.position[1])
+        up = (self.position[0], self.position[1] + 1)
+        down = (self.position[0], self.position[1] - 1)
+    
+        # Helper function to determine if a space is occupied
+        def is_occupied(position):
+            x, y = position
+            if x < 0 or x >= paddock.width or y < 0 or y >= paddock.height:
+                return 1  # Consider out-of-bounds as occupied
+            for other_cow in herd:
+              if other_cow.position == position:
+                   return 1  # Occupied
+            return 0  # Unoccupied
+
+        # Determine the condition of the spaces around the cow
+        left_condition = is_occupied(left)
+        right_condition = is_occupied(right)
+        up_condition = is_occupied(up)
+        down_condition = is_occupied(down)
+
+        # Create the state representation
+        state = [self.position[0], self.position[1], left_condition, right_condition, up_condition, down_condition]
         return state
 
     def choose_action(self, state, iteration):
-        if iteration < 7:
+        state = tuple(state)
+
+        if iteration < 9:
             self.exploration_rate = 1 - iteration/10
         else:
-            self.exploration_rate = 0.3
+            self.exploration_rate = 0.01
        
         if state not in self.q_table:
-        # Initialize the Q-values for the new state
-            self.q_table[state] = [0, 0, 0, 0]
-        # Set action 1 to have a high initial Q-value
+        # Set inital q state
             self.q_table[state] = np.random.uniform(low=0, high=1, size=4).tolist()
         if random.random() < self.exploration_rate:  # Exploration
             return random.randint(0, 3)
@@ -113,9 +139,15 @@ class Paddock:
         print(self.grid)
 
 
+def save_q_tables(cow, frame, iteration, filename):
+    with open(filename, "a") as file:
+        for state, q_table in cow.q_table.items():
+            state_json = json.dumps(state)
+            q_table_json = json.dumps(q_table)
 
+            file.write(f"{cow.number},{state_json},{frame},{iteration},,{q_table_json}\n")
+        
     
-
 
 def save_cows_to_file(herd, iteration, mode, filename):
     if mode == 0:
@@ -126,11 +158,11 @@ def save_cows_to_file(herd, iteration, mode, filename):
         with open(filename, "a") as file:
             for cow in herd:
                 position = herd.index(cow)
-                file.write(f"{cow.number},{cow.name},{cow.walk_speed},{cow.eagerness},{cow.luck},{position},{iteration}\n")
+                file.write(f"{cow.number},{cow.name},{cow.walk_speed},{cow.eagerness},{cow.luck},{position+1},{cow.exitframe},{iteration+1}\n")
 
-def moveSave(cow, action, nextState, reward, iteration, frame, filename):
+def moveSave(cow, state, action, nextState, reward, iteration, frame, filename):
     with open(filename, "a") as file:
-        file.write(f"{cow.number},{cow.position[0]},{cow.position[1]},{action},{nextState[0]},{nextState[1]},{reward},{iteration},{frame}\n")
+        file.write(f"{cow.number},{state[0]},{state[1]},{state[2]},{state[3]},{state[4]},{state[5]},{action},{nextState[0]},{nextState[1]},{reward},{iteration},{frame}\n")
 
 def load_cows_from_file(filename):
     cows = []
@@ -222,9 +254,9 @@ def env_step(paddock, cow, action, herd):
 
     reward = 0
 
-    if action == 0:  # up
+    if action == 0:  # Down
         next_y = min(y + 1, paddock.height - 1)
-    elif action == 1:  # down
+    elif action == 1:  #UP
         next_y = max(y - 1, 0)
     elif action == 2:  # left
         next_x = max(x - 1, 0)
@@ -240,13 +272,19 @@ def env_step(paddock, cow, action, herd):
 
     # Proximity reward/penalty
     target_x, target_y = paddock.target
-    dist_before = abs(y - target_y)
-    dist_after = abs(next_y - target_y)
-    
-    if dist_after < dist_before:
-        reward += 5  # Reward for moving closer to the target
+    dist_before_x = abs(x - target_x)
+    dist_after_x = abs(next_x - target_x)
+    dist_before_y = abs(y - target_y)
+    dist_after_y = abs(next_y - target_y)
+
+    if any(dist_after_x < dist_before_x) and dist_after_y < dist_before_y:
+        reward += 5  # Reward for moving closer to the target X & Y
+    elif any(dist_after_x < dist_before_x):
+        reward += 1  # Reward for moving closer to the target X
+    elif dist_after_y < dist_before_y:
+        reward += 2  # Reward for moving closer to the target Y
     else:
-        reward -= 5  # Penalty for moving away from the target
+        reward -= 1  # Penalty for moving away from the target
 
     # Exploration penalty
     if (next_x, next_y) == (x, y):
@@ -265,19 +303,25 @@ def env_step(paddock, cow, action, herd):
 
 
 def main(iterations=1):
+
+    NoCow = 200
     paddock_width = 25
-    paddock_height = 50
+    paddock_height = 75
     target = (np.arange(5), 0)
     
     herd = load_cows_from_file("TXT/cows.txt")
-    herd = herd[:10]
+    herd = herd[:NoCow]
     
     open(f"TXT/MOVES.txt", "w").close()
+    #open(f"TXT/Qtables.txt", "w").close()
     open(f"TXT/cow_arrival_iterations.txt", "w").close()
     
+    #for cow in herd:
+    #    cow.initialize_q_table(paddock_width, paddock_height)
+
     for iteration in range(iterations):
         paddock = Paddock(paddock_width, paddock_height)
-        herd = herd[:10]
+        herd = herd[:NoCow]
 
         arrived = []
         
@@ -292,18 +336,19 @@ def main(iterations=1):
             while herd:
                 
                 for cow in herd:   
-                    state = cow.get_state(herd)
+                    state = cow.get_state(herd, paddock)
                     action = cow.choose_action(state, iteration)
                     #print(f"Cow {cow.number} at {cow.position} takes action {action}")  # Debug action selection
                     next_state, reward, done = env_step(paddock, cow, action, herd)
                     #print(f"Cow {cow.number} moves to {next_state[:2]} with reward {reward}")  # Debug position update
                     cow.learn(state, action, reward, next_state, done)
                     cow.position = (next_state[0], next_state[1])
-                    moveSave(cow, action, next_state[:2], reward, iteration, frame_number, f"TXT/MOVES.txt")
-
+                    moveSave(cow, state, action, next_state[:2], reward, iteration, frame_number, f"TXT/MOVES.txt")
+                    #save_q_tables(cow, frame_number, iteration, f"TXT/Qtables.txt")
 
                     if done:
                         arrived.append(cow)
+                        cow.exitframe = frame_number
                         herd.remove(cow)
                         
                 frame_number += 1
@@ -314,11 +359,11 @@ def main(iterations=1):
                
         if iteration == 0:
             herd = load_cows_from_file("TXT/cows.txt")
-            herd = herd[:10]
+            herd = herd[:NoCow]
 
         else:
             herd = load_cows_from_file(f"TXT/cows_after_iteration_{iteration-1}.txt")
-            herd = herd[:10]
+            herd = herd[:NoCow]
 
         average_walk_speed = sum(cow.walk_speed for cow in herd) / len(herd)
         print(average_walk_speed)
@@ -328,7 +373,7 @@ def main(iterations=1):
         save_cows_to_file(arrived, iteration, 1, f"TXT/cow_arrival_iterations.txt")
         
         save_cows_to_file(herd, iteration, 0, f"TXT/cows_after_iteration_{iteration}.txt")
-
+    
 if __name__ == "__main__":
     iterations = int(input("How many iterations: "))
     main(iterations)
